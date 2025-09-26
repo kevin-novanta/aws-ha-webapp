@@ -1,0 +1,50 @@
+flowchart TD
+
+  %% VPC
+  subgraph VPC["VPC 10.0.0.0/16"]
+    direction TB
+
+    %% Public Subnets
+    subgraph Public_AZ_A["Public Subnet (AZ A)"]
+      IGW["Internet Gateway"]
+      ALB_A["Application Load Balancer (AZ A)"]
+      NAT_A["NAT Gateway (AZ A)"]
+    end
+
+    subgraph Public_AZ_B["Public Subnet (AZ B)"]
+      ALB_B["Application Load Balancer (AZ B)"]
+      NAT_B["NAT Gateway (AZ B)"]
+    end
+
+    %% Private App Subnets
+    subgraph PrivateApp_A["Private App Subnet (AZ A)"]
+      EC2_A["EC2 (ASG Instance A)"]
+    end
+
+    subgraph PrivateApp_B["Private App Subnet (AZ B)"]
+      EC2_B["EC2 (ASG Instance B)"]
+    end
+
+    %% Private DB Subnets
+    subgraph PrivateDB_A["Private DB Subnet (AZ A)"]
+      RDS_A["RDS Instance (Primary/Standby)"]
+    end
+
+    subgraph PrivateDB_B["Private DB Subnet (AZ B)"]
+      RDS_B["RDS Instance (Replica/Standby)"]
+    end
+
+  end
+
+  %% Connections
+  IGW --- ALB_A
+  IGW --- ALB_B
+
+  ALB_A --> EC2_A
+  ALB_B --> EC2_B
+
+  EC2_A --> RDS_A
+  EC2_B --> RDS_B
+
+  PrivateApp_A --> NAT_A
+  PrivateApp_B --> NAT_B
