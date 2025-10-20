@@ -1,0 +1,112 @@
+
+
+name: App CI — Build, Test, Push to ECR
+
+on:
+  push:
+    branches: [ main, staging, dev ]
+    paths:
+      - 'app/**'
+      - 'deploy/**'
+      - 'ci/github/workflows/app-ci.yml'
+      - 'VERSION'
+  pull_request:
+    branches: [ main, staging, dev ]
+    paths:
+      - 'app/**'
+      - 'deploy/**'
+      - 'ci/github/workflows/app-ci.yml'
+      - 'VERSION'
+
+permissions:
+  id-token: write   # OIDC
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  # Set by repo variables/secrets (recommended):
+  #   - AWS_ROLE_TO_ASSUME: arn:aws:iam::<account-id>:role/aws-ha-webapp-ci-ecr-push-role
+  #   - ECR_REPOSITORY: <account-id>.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/aws-ha-webapp-app
+
+jobs:
+  build-test-push:
+    name: Build + Test + Push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read VERSION
+        id: ver
+        run: |
+          echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
+
+      - name: Set image tags
+        id: tags
+        run: |
+          SHORT_SHA=${GITHUB_SHA::7}
+          SAFE_REF=${GITHUB_REF_NAME//\//-}
+          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+          echo "ref=$SAFE_REF" >> $GITHUB_OUTPUT
+          echo "image_tag=${{ steps.ver.outputs.version }}-$SAFE_REF-$SHORT_SHA" >> $GITHUB_OUTPUT
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('app/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r app/requirements.txt
+          pip install pytest
+
+      - name: Run unit tests
+        run: |
+          pytest -q app/tests
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME || secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: app/Dockerfile
+          push: true
+          tags: |
+            ${{ vars.ECR_REPOSITORY || secrets.ECR_REPOSITORY }}:${{ steps.tags.outputs.image_tag }}
+
+      - name: Record image tag for deployment
+        run: |
+          mkdir -p deploy
+          echo "${{ steps.tags.outputs.image_tag }}" > deploy/image_tag
+
+      - name: Upload image_tag artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image_tag
+          path: deploy/image_tag
+          retention-days: 7
+
+      - name: Summary
+        run: |
+          echo "## Build summary" >> $GITHUB_STEP_SUMMARY
+          echo "Image: ${{ vars.ECR_REPOSITORY || secrets.ECR_REPOSITORY }}:${{ steps.tags.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "Branch: ${{ steps.tags.outputs.ref }}  Commit: ${{ steps.tags.outputs.short_sha }}" >> $GITHUB_STEP_SUMMARY

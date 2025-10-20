@@ -1,0 +1,143 @@
+name: Terraform — Plan & Apply
+
+on:
+  pull_request:
+    branches: [ main, staging, dev ]
+    paths:
+      - 'infra/**'
+      - 'ci/github/workflows/terraform.yml'
+  push:
+    branches: [ main, staging, dev ]
+    paths:
+      - 'infra/**'
+      - 'ci/github/workflows/terraform.yml'
+
+permissions:
+  id-token: write   # for OIDC
+  contents: read
+  pull-requests: write  # to comment plan on PRs
+
+env:
+  AWS_REGION: us-east-1
+  TF_VERSION: 1.8.5
+
+# Utility: choose env folder based on branch
+# main -> prod, staging -> staging, dev -> dev
+jobs:
+  plan:
+    name: terraform plan (${{ github.event.pull_request.head.ref || github.ref_name }})
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE || secrets.AWS_TERRAFORM_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Select environment folder
+        id: env
+        run: |
+          BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
+          case "$BRANCH" in
+            main)    ENV_DIR=infra/envs/prod ;;
+            staging) ENV_DIR=infra/envs/staging ;;
+            dev)     ENV_DIR=infra/envs/dev ;;
+            *)       ENV_DIR=infra/envs/dev ;;
+          esac
+          echo "env_dir=$ENV_DIR" >> $GITHUB_OUTPUT
+
+      - name: Terraform Init
+        run: |
+          terraform -chdir=${{ steps.env.outputs.env_dir }} init \
+            -backend-config=backend.hcl
+
+      - name: Terraform Validate
+        run: |
+          terraform -chdir=${{ steps.env.outputs.env_dir }} validate
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform -chdir=${{ steps.env.outputs.env_dir }} plan -no-color -out=tfplan
+          terraform -chdir=${{ steps.env.outputs.env_dir }} show -no-color tfplan > tfplan.txt
+
+      - name: Upload tfplan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ github.event.pull_request.head.ref }}
+          path: ${{ steps.env.outputs.env_dir }}/tfplan
+
+      - name: Comment plan on PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: terraform-plan
+          message: |
+            ### Terraform Plan — ${{ steps.env.outputs.env_dir }}
+            ```
+            ${{ steps.plan.outputs.stdout || '' }}
+            ```
+            <details><summary>Full plan text</summary>
+
+            ```
+            ${{ steps.plan.outputs.stdout || '' }}
+            ```
+            </details>
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  apply:
+    name: terraform apply (${{ github.ref_name }})
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: terraform-apply-${{ github.ref_name }}
+      cancel-in-progress: false
+
+    environment: |
+      ${{ github.ref_name == 'main' && 'prod' || github.ref_name == 'staging' && 'staging' || 'dev' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE || secrets.AWS_TERRAFORM_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Select environment folder
+        id: env
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+          case "$BRANCH" in
+            main)    ENV_DIR=infra/envs/prod ;;
+            staging) ENV_DIR=infra/envs/staging ;;
+            dev)     ENV_DIR=infra/envs/dev ;;
+            *)       ENV_DIR=infra/envs/dev ;;
+          esac
+          echo "env_dir=$ENV_DIR" >> $GITHUB_OUTPUT
+
+      - name: Terraform Init
+        run: |
+          terraform -chdir=${{ steps.env.outputs.env_dir }} init \
+            -backend-config=backend.hcl
+
+      - name: Terraform Apply (auto-approve)
+        run: |
+          terraform -chdir=${{ steps.env.outputs.env_dir }} apply -auto-approve
