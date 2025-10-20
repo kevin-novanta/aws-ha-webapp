@@ -11,12 +11,12 @@ locals {
 module "vpc" {
   source = "../../modules/vpc"
 
-  project_name         = local.project_name
-  vpc_cidr             = var.vpc_cidr
-  azs                  = var.azs
-  public_subnets       = var.public_subnet_cidrs
-  private_app_subnets  = var.app_subnet_cidrs
-  private_db_subnets   = var.db_subnet_cidrs
+  project_name        = local.project_name
+  vpc_cidr            = var.vpc_cidr
+  azs                 = var.azs
+  public_subnets      = var.public_subnet_cidrs
+  private_app_subnets = var.app_subnet_cidrs
+  private_db_subnets  = var.db_subnet_cidrs
 }
 
 # ---- Security (SGs/NACLs) ----

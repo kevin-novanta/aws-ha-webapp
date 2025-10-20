@@ -23,10 +23,10 @@ resource "aws_lb" "this" {
 
 # Target Group for EC2 instances (ASG will register instances)
 resource "aws_lb_target_group" "app" {
-  name     = "aws-ha-webapp-tg"
-  port     = var.target_port
-  protocol = "HTTP"
-  vpc_id   = var.vpc_id
+  name        = "aws-ha-webapp-tg"
+  port        = var.target_port
+  protocol    = "HTTP"
+  vpc_id      = var.vpc_id
   target_type = "instance"
 
   health_check {
@@ -89,3 +89,4 @@ resource "aws_lb_listener" "https" {
     target_group_arn = aws_lb_target_group.app.arn
   }
 }
+

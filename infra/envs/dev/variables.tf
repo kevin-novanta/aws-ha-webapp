@@ -63,3 +63,37 @@ variable "enable_endpoints" {
   type        = bool
   default     = false
 }
+
+# --- CI / GitHub OIDC inputs for IAM module ---
+variable "github_org" {
+  description = "GitHub organization or user that owns the repository used by CI"
+  type        = string
+}
+
+variable "github_repo" {
+  description = "GitHub repository name (without org) that will run CI"
+  type        = string
+}
+
+variable "oidc_audience" {
+  description = "OIDC audience for GitHub → AWS (usually sts.amazonaws.com)"
+  type        = string
+  default     = "sts.amazonaws.com"
+}
+
+variable "project_name" {
+  description = "Human-friendly project identifier used in tags and names"
+  type        = string
+}
+
+variable "multi_az" {
+  description = "Whether to enable Multi-AZ for RDS in this environment"
+  type        = bool
+  default     = false
+}
+
+variable "master_username" {
+  description = "RDS master username"
+  type        = string
+  default     = "appadmin" # optional default
+}

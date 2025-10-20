@@ -16,7 +16,7 @@ resource "aws_ecr_repository" "app" {
   }
 
   tags = merge(var.tags, {
-    Name = var.repository_name
+    Name    = var.repository_name
     Project = var.project_name
   })
 }
@@ -24,7 +24,7 @@ resource "aws_ecr_repository" "app" {
 # ---- Lifecycle Policy ----
 resource "aws_ecr_lifecycle_policy" "app" {
   repository = aws_ecr_repository.app.name
-  policy     = jsonencode({
+  policy = jsonencode({
     rules = [
       {
         rulePriority = 1,
@@ -40,15 +40,4 @@ resource "aws_ecr_lifecycle_policy" "app" {
       }
     ]
   })
-}
-
-# ---- Outputs ----
-output "repository_url" {
-  description = "Full ECR repository URL (to be used by CI/CD and ASG)."
-  value       = aws_ecr_repository.app.repository_url
-}
-
-output "repository_arn" {
-  description = "ARN of the ECR repository."
-  value       = aws_ecr_repository.app.arn
 }

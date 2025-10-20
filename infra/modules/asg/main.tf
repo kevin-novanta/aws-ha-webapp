@@ -39,10 +39,10 @@ resource "aws_launch_template" "app" {
   tag_specifications {
     resource_type = "instance"
     tags = merge(var.tags, {
-      Name        = "aws-ha-webapp-ec2"
-      Project     = var.project_name
-      Tier        = "app"
-      ManagedBy   = "terraform"
+      Name      = "aws-ha-webapp-ec2"
+      Project   = var.project_name
+      Tier      = "app"
+      ManagedBy = "terraform"
     })
   }
 

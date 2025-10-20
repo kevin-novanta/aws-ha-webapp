@@ -24,3 +24,4 @@ output "https_listener_arn" {
   description = "ARN of the HTTPS (443) listener if created; null otherwise"
   value       = try(aws_lb_listener.https[0].arn, null)
 }
+

@@ -1,5 +1,3 @@
-
-
 ############################################
 # aws-ha-webapp — Security Module
 ############################################
@@ -28,11 +26,11 @@ resource "aws_security_group" "alb" {
   # }
 
   egress {
-    description = "Allow outbound to app servers on port 8080"
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    security_groups = [aws_security_group.app.id]
+    description = "Allow all outbound (no SG reference to avoid cycles)"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   tags = merge(var.tags, {

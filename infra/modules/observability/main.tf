@@ -1,5 +1,3 @@
-
-
 ############################################
 # aws-ha-webapp — Observability Module
 # Purpose: CloudWatch alarms (and optional event subscriptions)
@@ -10,20 +8,24 @@
 # ALB CloudWatch metrics use the ARN *suffix* (e.g., "app/xyz/123") as the LoadBalancer dimension.
 # TG metrics use the TargetGroup dimension as "targetgroup/xyz/123" plus the LoadBalancer dimension.
 locals {
-  lb_suffix = regexreplace(var.alb_arn, "^arn:aws:elasticloadbalancing:[^:]+:[0-9]+:loadbalancer/", "")
-  tg_suffix = regexreplace(var.tg_arn,  "^arn:aws:elasticloadbalancing:[^:]+:[0-9]+:targetgroup/",   "targetgroup/")
+  # Defensive parsing: if ARNs are empty or incomplete, produce empty suffixes
+  lb_parts  = var.alb_arn == "" ? [] : split("/", var.alb_arn)
+  lb_suffix = length(local.lb_parts) >= 6 ? join("/", slice(local.lb_parts, 5, length(local.lb_parts))) : ""
+
+  tg_parts  = var.tg_arn == "" ? [] : split("/", var.tg_arn)
+  tg_suffix = length(local.tg_parts) >= 6 ? join("/", slice(local.tg_parts, 5, length(local.tg_parts))) : ""
 }
 
 # -----------------------------
 # ALB 5xx rate alarm (metric math)
 # -----------------------------
 resource "aws_cloudwatch_metric_alarm" "alb_5xx_rate" {
-  count               = var.enable_alarms ? 1 : 0
+  count               = (var.enable_alarms && local.lb_suffix != "") ? 1 : 0
   alarm_name          = "${var.project_name}-alb-5xx-rate"
   alarm_description   = "ALB 5xx percentage over requests exceeds threshold"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 5
-  threshold           = 5  # percent; adjust via variables.tf if desired
+  threshold           = 5 # percent; adjust via variables.tf if desired
   treat_missing_data  = "missing"
   datapoints_to_alarm = 3
 
@@ -67,7 +69,7 @@ resource "aws_cloudwatch_metric_alarm" "alb_5xx_rate" {
 # Target Group UnHealthyHostCount > 0
 # ----------------------------------------
 resource "aws_cloudwatch_metric_alarm" "tg_unhealthy" {
-  count               = var.enable_alarms ? 1 : 0
+  count               = (var.enable_alarms && local.lb_suffix != "" && local.tg_suffix != "") ? 1 : 0
   alarm_name          = "${var.project_name}-tg-unhealthy-hosts"
   alarm_description   = "One or more targets in the ALB Target Group are unhealthy"
   comparison_operator = "GreaterThanThreshold"
@@ -114,16 +116,16 @@ resource "aws_cloudwatch_metric_alarm" "asg_inservice_low" {
 # Only created when explicitly enabled and SNS topic provided.
 # ----------------------------------------
 resource "aws_db_event_subscription" "rds_events" {
-  count                  = var.enable_rds_events && var.sns_topic_arn != "" ? 1 : 0
-  name                   = "${var.project_name}-rds-events"
-  sns_topic              = var.sns_topic_arn
-  source_type            = "db-instance"
-  event_categories       = ["failover", "failure", "availability"]
-  enabled                = true
+  count            = var.enable_rds_events && var.sns_topic_arn != "" ? 1 : 0
+  name             = "${var.project_name}-rds-events"
+  sns_topic        = var.sns_topic_arn
+  source_type      = "db-instance"
+  event_categories = ["failover", "failure", "availability"]
+  enabled          = true
 
   # Extract DB identifier from ARN (everything after "db:")
   source_ids = [
-    regexreplace(var.rds_arn, "^arn:aws:rds:[^:]+:[0-9]+:db:", "")
+    replace(var.rds_arn, "^arn:aws:rds:[^:]+:[0-9]+:db:", "")
   ]
 
   tags = merge(var.tags, {

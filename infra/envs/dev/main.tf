@@ -2,6 +2,8 @@
 # aws-ha-webapp — env: dev (orchestration)
 ############################################
 
+
+
 # ---- Locals ----
 locals {
   project_name = "aws-ha-webapp"
@@ -11,17 +13,18 @@ locals {
 module "vpc" {
   source = "../../modules/vpc"
 
-  project_name         = local.project_name
-  vpc_cidr             = var.vpc_cidr
-  azs                  = var.azs
-  public_subnets       = var.public_subnet_cidrs
-  private_app_subnets  = var.app_subnet_cidrs
-  private_db_subnets   = var.db_subnet_cidrs
+  project_name        = local.project_name
+  vpc_cidr            = var.vpc_cidr
+  azs                 = var.azs
+  public_subnets      = var.public_subnet_cidrs
+  private_app_subnets = var.app_subnet_cidrs
+  private_db_subnets  = var.db_subnet_cidrs
 }
 
 # ---- Security (SGs/NACLs) ----
 module "security" {
-  source = "../../modules/security"
+  source       = "../../modules/security"
+  project_name = local.project_name
 
   vpc_id = module.vpc.vpc_id
 
@@ -35,12 +38,16 @@ module "security" {
 module "iam" {
   source = "../../modules/iam"
 
-  # If your module expects inputs for OIDC, add them here per env.
+  # required inputs for IAM module
+  project_name = local.project_name
+  github_org   = var.github_org
+  github_repo  = var.github_repo
 }
 
 # ---- ECR (app image repo) ----
 module "ecr" {
-  source = "../../modules/ecr"
+  source       = "../../modules/ecr"
+  project_name = local.project_name
 
   # Optionally pass a repo name; module can default to project name
   # repository_name = "${local.project_name}-app"
@@ -48,7 +55,8 @@ module "ecr" {
 
 # ---- ALB (public) ----
 module "alb" {
-  source = "../../modules/alb"
+  source       = "../../modules/alb"
+  project_name = local.project_name
 
   vpc_id            = module.vpc.vpc_id
   public_subnet_ids = module.vpc.public_subnet_ids
@@ -62,11 +70,12 @@ module "alb" {
 
 # ---- ASG (private app) ----
 module "asg" {
-  source = "../../modules/asg"
+  source       = "../../modules/asg"
+  project_name = local.project_name
 
-  vpc_id                 = module.vpc.vpc_id
   private_app_subnet_ids = module.vpc.private_app_subnet_ids
   app_sg_id              = module.security.app_sg_id
+  instance_profile_name  = module.iam.instance_profile_name
 
   instance_type = var.instance_type
   ecr_repo_uri  = module.ecr.repository_url
@@ -77,44 +86,55 @@ module "asg" {
 
 # ---- RDS (private db) ----
 module "rds" {
-  source = "../../modules/rds"
+  source               = "../../modules/rds"
+  project_name         = local.project_name
+  db_security_group_id = module.security.db_sg_id
+
 
   vpc_id                = module.vpc.vpc_id
   private_db_subnet_ids = module.vpc.private_db_subnet_ids
 
   db_sg_source_sg_id = module.security.app_sg_id
   instance_class     = var.db_instance_class
+  master_username    = var.master_username
 
   # Optional inputs
   # engine         = "postgres"
   # db_name        = "appdb"
-  # master_username = "appuser"
   # secret_name     = "${local.project_name}/db-credentials"
   # multi_az        = var.multi_az
 }
 
 # ---- Observability (alarms/dashboards) ----
 module "observability" {
-  source = "../../modules/observability"
+  source       = "../../modules/observability"
+  project_name = local.project_name
 
   # Enable/disable alarms per env
   enable_alarms = var.enable_alarms
 
   # Wire resource identifiers if your module expects them
-  alb_arn   = try(module.alb.alb_arn, null)
-  tg_arn    = try(module.alb.target_group_arn, null)
-  asg_name  = try(module.asg.asg_name, null)
-  rds_arn   = try(module.rds.db_arn, null)
+  alb_arn  = try(module.alb.alb_arn, null)
+  tg_arn   = try(module.alb.target_group_arn, null)
+  asg_name = try(module.asg.asg_name, null)
+  rds_arn  = try(module.rds.db_arn, null)
 }
 
 # ---- VPC Endpoints (optional hardening) ----
-module "endpoints" {
-  source = "../../modules/endpoints"
 
+module "endpoints" {
+  source       = "../../modules/endpoints"
+  project_name = local.project_name
+
+  # What the module requires
+  region                  = var.region
+  vpc_id                  = module.vpc.vpc_id
+  private_subnet_ids      = module.vpc.private_app_subnet_ids
+  private_route_table_ids = module.vpc.private_app_route_table_ids
+  endpoint_sg_id          = module.security.app_sg_id # or a dedicated endpoint SG if you have one
+
+  # Feature toggle per env
   enable_endpoints = var.enable_endpoints
-  vpc_id           = module.vpc.vpc_id
-  subnet_ids       = module.vpc.private_app_subnet_ids
-  # endpoint_sg_id   = module.security.app_sg_id
 }
 
 # ---- Useful outputs for this env ----

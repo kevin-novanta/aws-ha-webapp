@@ -80,3 +80,9 @@ variable "asg_inservice_eval_periods" {
   type        = number
   default     = 2
 }
+
+variable "engine_version" {
+  type        = string
+  default     = "15" # or "16"
+  description = "PostgreSQL engine version"
+}

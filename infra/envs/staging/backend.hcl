@@ -1,5 +1,5 @@
-bucket         = "aws_s3_bucket.tfstate.bucket"   # from bootstrap output: state_bucket_name
+bucket         = "kevin-aws-ha-webapp-tfstate-207567803283-us-east-1"
 key            = "aws-ha-webapp/staging/terraform.tfstate"
 region         = "us-east-1"
-dynamodb_table = "aws_dynamodb_table.tf_locks.name"            # from bootstrap output: lock_table_name
+dynamodb_table = "tfstate-locks"
 encrypt        = true

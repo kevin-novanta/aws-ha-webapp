@@ -12,14 +12,14 @@
 # EC2 instance role (SSM + ECR pull)
 # ----------------------
 resource "aws_iam_role" "ec2_role" {
-  name               = "aws-ha-webapp-ec2-role"
+  name = "aws-ha-webapp-ec2-role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
+        Effect    = "Allow"
         Principal = { Service = "ec2.amazonaws.com" }
-        Action = "sts:AssumeRole"
+        Action    = "sts:AssumeRole"
       }
     ]
   })
@@ -91,7 +91,7 @@ resource "aws_iam_openid_connect_provider" "github" {
 # CI role: Terraform plan/apply (broad perms for demo; tighten in prod)
 # ----------------------
 resource "aws_iam_role" "ci_terraform" {
-  name               = "aws-ha-webapp-ci-terraform-role"
+  name = "aws-ha-webapp-ci-terraform-role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
@@ -126,7 +126,7 @@ resource "aws_iam_role_policy_attachment" "ci_terraform_admin" {
 # CI role: ECR push (scoped to ECR actions)
 # ----------------------
 resource "aws_iam_role" "ci_ecr_push" {
-  name               = "aws-ha-webapp-ci-ecr-push-role"
+  name = "aws-ha-webapp-ci-ecr-push-role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
@@ -158,9 +158,9 @@ resource "aws_iam_policy" "ecr_push" {
     Version = "2012-10-17",
     Statement = [
       {
-        Sid    = "Auth",
-        Effect = "Allow",
-        Action = ["ecr:GetAuthorizationToken"],
+        Sid      = "Auth",
+        Effect   = "Allow",
+        Action   = ["ecr:GetAuthorizationToken"],
         Resource = "*"
       },
       {
@@ -186,25 +186,3 @@ resource "aws_iam_role_policy_attachment" "ci_ecr_push_attach" {
   policy_arn = aws_iam_policy.ecr_push.arn
 }
 
-# ----------------------
-# Useful outputs (referenced by envs)
-# ----------------------
-output "instance_profile_name" {
-  description = "EC2 instance profile name to attach to Launch Template"
-  value       = aws_iam_instance_profile.ec2_profile.name
-}
-
-output "ec2_role_arn" {
-  description = "EC2 IAM role ARN"
-  value       = aws_iam_role.ec2_role.arn
-}
-
-output "ci_terraform_role_arn" {
-  description = "IAM role ARN for Terraform CI pipeline"
-  value       = aws_iam_role.ci_terraform.arn
-}
-
-output "ci_ecr_push_role_arn" {
-  description = "IAM role ARN for App CI ECR push pipeline"
-  value       = aws_iam_role.ci_ecr_push.arn
-}

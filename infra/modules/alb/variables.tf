@@ -43,3 +43,11 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+
+# was referenced by tfvars already
+variable "multi_az" {
+  description = "Whether to enable Multi-AZ for RDS in this environment"
+  type        = bool
+  default     = false
+}
