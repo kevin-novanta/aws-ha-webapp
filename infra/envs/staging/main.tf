@@ -127,3 +127,14 @@ output "rds_endpoint" {
   value       = try(module.rds.db_endpoint, null)
   description = "RDS database endpoint."
 }
+
+# Re-export helpful IDs from modules so `terraform output` can read them
+output "vpc_id" {
+  description = "VPC ID for this environment"
+  value       = module.vpc.vpc_id
+}
+
+# (optional but handy)
+output "public_subnet_ids"       { value = module.vpc.public_subnet_ids }
+output "private_app_subnet_ids"  { value = module.vpc.private_app_subnet_ids }
+output "private_db_subnet_ids"   { value = module.vpc.private_db_subnet_ids }
