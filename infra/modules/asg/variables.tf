@@ -71,3 +71,8 @@ variable "desired_capacity" {
   type        = number
   default     = 1
 }
+
+variable "region" {
+  description = "AWS region (used by user_data to log in to ECR)."
+  type        = string
+}

@@ -1,6 +1,3 @@
-
-
-
 ############################################
 # aws-ha-webapp — Endpoints Module
 # Purpose: Provide VPC endpoints for AWS services to keep private subnets off 0.0.0.0/0
@@ -16,7 +13,7 @@ resource "aws_vpc_endpoint" "ssm" {
   private_dns_enabled = true
 
   tags = merge(var.tags, {
-    Name    = "${var.project_name}-ssm-endpoint"
+    Name    = "${var.project_name}-vpce-ssm"
     Project = var.project_name
   })
 }
@@ -30,7 +27,7 @@ resource "aws_vpc_endpoint" "ssmmessages" {
   private_dns_enabled = true
 
   tags = merge(var.tags, {
-    Name    = "${var.project_name}-ssmmessages-endpoint"
+    Name    = "${var.project_name}-vpce-ssmmessages"
     Project = var.project_name
   })
 }
@@ -44,7 +41,7 @@ resource "aws_vpc_endpoint" "secretsmanager" {
   private_dns_enabled = true
 
   tags = merge(var.tags, {
-    Name    = "${var.project_name}-secretsmanager-endpoint"
+    Name    = "${var.project_name}-vpce-secretsmanager"
     Project = var.project_name
   })
 }
@@ -58,6 +55,22 @@ resource "aws_vpc_endpoint" "s3" {
 
   tags = merge(var.tags, {
     Name    = "${var.project_name}-s3-endpoint"
+    Project = var.project_name
+  })
+}
+
+# ---- Optional: Interface Endpoint (EC2Messages) ----
+resource "aws_vpc_endpoint" "ec2messages" {
+  count               = var.enable_endpoints ? 1 : 0
+  vpc_id              = var.vpc_id
+  service_name        = "com.amazonaws.${var.region}.ec2messages"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = var.private_subnet_ids
+  security_group_ids  = [var.endpoint_sg_id]
+  private_dns_enabled = true
+
+  tags = merge(var.tags, {
+    Name    = "${var.project_name}-vpce-ec2messages"
     Project = var.project_name
   })
 }

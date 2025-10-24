@@ -54,10 +54,10 @@ resource "aws_security_group" "app" {
   }
 
   egress {
-    description = "Allow outbound HTTPS (443) to internet or endpoints"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
+    description = "Allow all outbound (DNS/ECR/SSM, etc.)"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -100,3 +100,26 @@ resource "aws_security_group" "db" {
 #   vpc_id = var.vpc_id
 #   tags = merge(var.tags, { Name = "${var.project_name}-nacl-private" })
 # }
+
+resource "aws_security_group" "vpce" {
+  name        = "${var.project_name}-vpce"
+  description = "Allow app instances to reach interface endpoints on 443"
+  vpc_id      = var.vpc_id
+
+  # allow instances in app SG to hit the endpoint ENIs on 443
+  ingress {
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app.id] # or var.app_sg_id if in endpoints module
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = var.tags
+}

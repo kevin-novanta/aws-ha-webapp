@@ -1,5 +1,3 @@
-
-
 ############################################
 # aws-ha-webapp — ASG Module
 # Purpose: Launch Template + ASG in private app subnets and register with ALB TG
@@ -29,9 +27,10 @@ resource "aws_launch_template" "app" {
 
   user_data = base64encode(
     templatefile("${path.module}/user_data.tpl", {
-      ecr_repo_uri = var.ecr_repo_uri
-      image_tag    = var.image_tag
-      app_port     = var.app_port
+      ECR_REPO_URI = var.ecr_repo_uri
+      IMAGE_TAG    = var.image_tag
+      APP_PORT     = tostring(var.app_port)
+      REGION       = var.region
     })
   )
 
@@ -63,7 +62,7 @@ resource "aws_autoscaling_group" "app" {
   max_size                  = var.max_size
   desired_capacity          = var.desired_capacity
   health_check_type         = "ELB"
-  health_check_grace_period = 60
+  health_check_grace_period = 120
   target_group_arns         = [var.target_group_arn]
   capacity_rebalance        = true
 

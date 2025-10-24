@@ -135,6 +135,6 @@ output "vpc_id" {
 }
 
 # (optional but handy)
-output "public_subnet_ids"       { value = module.vpc.public_subnet_ids }
-output "private_app_subnet_ids"  { value = module.vpc.private_app_subnet_ids }
-output "private_db_subnet_ids"   { value = module.vpc.private_db_subnet_ids }
+output "public_subnet_ids" { value = module.vpc.public_subnet_ids }
+output "private_app_subnet_ids" { value = module.vpc.private_app_subnet_ids }
+output "private_db_subnet_ids" { value = module.vpc.private_db_subnet_ids }

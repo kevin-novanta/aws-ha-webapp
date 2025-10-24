@@ -53,7 +53,9 @@ resource "aws_iam_policy" "ecr_pull" {
         Action = [
           "ecr:BatchCheckLayerAvailability",
           "ecr:GetDownloadUrlForLayer",
-          "ecr:BatchGetImage"
+          "ecr:BatchGetImage",
+          "ecr:DescribeImages",
+          "ecr:ListImages"
         ],
         Resource = "*"
       }

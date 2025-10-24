@@ -1,36 +1,22 @@
-#!/bin/bash
-set -euxo pipefail
-
-# Log to file and console
-exec > >(tee -a /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
-
-echo "[INFO] Starting bootstrap sequence..."
-
 # --------------------------
-# Capture Terraform variables
+# Install Docker & AWS CLI & SSM Agent (AL2023-friendly)
 # --------------------------
-APP_PORT=${app_port}
-ECR_REPO_URI="${ecr_repo_uri}"
-IMAGE_TAG="${image_tag}"
-
-# --------------------------
-# Discover region from IMDSv2
-# --------------------------
-TOKEN=$(curl -sS -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-REGION=$(curl -sS -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/dynamic/instance-identity/document | awk -F '"' '/"region"/ {print $4}')
-
-echo "[INFO] Detected region: $REGION"
-
-# --------------------------
-# Install Docker & AWS CLI
-# --------------------------
-if ! command -v docker >/dev/null 2>&1; then
-  yum update -y || true
-  amazon-linux-extras enable docker || true
-  yum install -y docker aws-cli || true
-  systemctl enable docker
-  systemctl start docker
+PKG="dnf"
+if ! command -v dnf >/dev/null 2>&1; then
+  PKG="yum"
 fi
+
+# Update package index quietly
+sudo $PKG -y update || true
+
+# Install docker, awscli, ssm agent
+sudo $PKG -y install docker awscli amazon-ssm-agent || true
+
+# Enable and start services
+sudo systemctl enable docker
+sudo systemctl start docker
+sudo systemctl enable amazon-ssm-agent
+sudo systemctl start amazon-ssm-agent
 
 # --------------------------
 # Authenticate to ECR
@@ -50,11 +36,10 @@ echo "[INFO] Pulling application image: $IMAGE_REF"
 /usr/bin/docker ps -aq --filter name=app | xargs -r /usr/bin/docker rm -f || true
 
 echo "[INFO] Running container on port $APP_PORT..."
-/usr/bin/docker run -d \
-  --name app \
-  -p "$APP_PORT:$APP_PORT" \
-  --restart unless-stopped \
-  -e PORT="$APP_PORT" \
-  "$IMAGE_REF"
+/usr/bin/docker run -d --name app \
+  -p "${APP_PORT}:${APP_PORT}" --restart unless-stopped \
+  -e PORT="${APP_PORT}" \
+  "${ECR_REPO_URI}:${IMAGE_TAG}" \
+  uvicorn src.app.main:app --host 0.0.0.0 --port "${APP_PORT}"
 
 echo "[INFO] Application container started successfully."

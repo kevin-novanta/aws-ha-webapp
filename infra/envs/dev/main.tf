@@ -72,6 +72,7 @@ module "alb" {
 module "asg" {
   source       = "../../modules/asg"
   project_name = local.project_name
+  region       = var.region
 
   private_app_subnet_ids = module.vpc.private_app_subnet_ids
   app_sg_id              = module.security.app_sg_id
@@ -131,7 +132,8 @@ module "endpoints" {
   vpc_id                  = module.vpc.vpc_id
   private_subnet_ids      = module.vpc.private_app_subnet_ids
   private_route_table_ids = module.vpc.private_app_route_table_ids
-  endpoint_sg_id          = module.security.app_sg_id # or a dedicated endpoint SG if you have one
+  endpoint_sg_id          = module.security.vpce_sg_id
+  app_sg_id               = module.security.app_sg_id # used to allow 443 → VPCE
 
   # Feature toggle per env
   enable_endpoints = var.enable_endpoints
@@ -165,6 +167,28 @@ output "vpc_id" {
 }
 
 # (optional but handy)
-output "public_subnet_ids"       { value = module.vpc.public_subnet_ids }
-output "private_app_subnet_ids"  { value = module.vpc.private_app_subnet_ids }
-output "private_db_subnet_ids"   { value = module.vpc.private_db_subnet_ids }
+output "public_subnet_ids" { value = module.vpc.public_subnet_ids }
+output "private_app_subnet_ids" { value = module.vpc.private_app_subnet_ids }
+output "private_db_subnet_ids" { value = module.vpc.private_db_subnet_ids }
+
+# Security group IDs (handy for debugging)
+output "alb_sg_id" {
+  description = "ALB security group ID"
+  value       = module.security.alb_sg_id
+}
+
+output "app_sg_id" {
+  description = "App/ASG security group ID"
+  value       = module.security.app_sg_id
+}
+
+output "db_sg_id" {
+  description = "DB security group ID"
+  value       = module.security.db_sg_id
+}
+
+output "vpce_sg_id" {
+  description = "VPC endpoints security group ID"
+  value       = module.security.vpce_sg_id
+}
+
